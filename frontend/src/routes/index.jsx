@@ -4,6 +4,18 @@ import mqtt from "mqtt";
 const DEVICE_ID = "esp32-01";
 const BROKER_URL = "ws://broker.emqx.io:8083/mqtt"; // example broker with websockets
 
+// --- ADDED: DEFINE YOUR PRESETS HERE ---
+// Assuming your LEDs are [LED_1, LED_2, LED_3]
+// If they are Red, Green, Blue, you can name them like "Red", "Blue", etc.
+const presets = [
+  { name: "All Off", levels: [0, 0, 0] },
+  { name: "All On", levels: [255, 255, 255] },
+  { name: "Reading", levels: [200, 200, 100] },
+  { name: "Movie", levels: [20, 20, 150] },
+  { name: "Warm", levels: [255, 180, 50] },
+];
+// --- END ADDED ---
+
 export default function App() {
   const [levels, setLevels] = createSignal([0, 0, 0]);
   const [pir, setPir] = createSignal("unknown");
@@ -19,6 +31,23 @@ export default function App() {
     const payload = JSON.stringify({ led, level: Number(level) });
     client.publish(topicCmd, payload);
   }
+
+  // --- ADDED: PRESET HANDLER FUNCTION ---
+  function applyPreset(presetLevels) {
+    if (!client) return;
+
+    // 1. Optimistic UI update: Set the sliders instantly
+    // This makes the app feel fast.
+    setLevels(presetLevels);
+
+    // 2. Send the commands to the ESP32
+    // The ESP32 will send back `led/state` messages,
+    // which will just confirm the state we've already set.
+    presetLevels.forEach((level, index) => {
+      publishSet(index, level);
+    });
+  }
+  // --- END ADDED ---
 
   onMount(() => {
     client = mqtt.connect(BROKER_URL);
@@ -37,6 +66,11 @@ export default function App() {
           const level = Number(msg.level);
           if (!Number.isNaN(led) && led >= 0 && led < 3) {
             setLevels((prev) => {
+              // Only update if the state is actually different
+              // This prevents sliders from jumping if you're dragging one
+              // while another is being updated by a preset.
+              if (prev[led] === level) return prev;
+
               const copy = [...prev];
               copy[led] = level;
               return copy;
@@ -80,6 +114,28 @@ export default function App() {
           aria-label="accent divider"
         />
 
+        {/* --- ADDED: PRESET BUTTONS --- */}
+        <div class="mb-8">
+          <h4 class="text-lg font-semibold mb-3 text-gray-800">Presets</h4>
+          <div class="flex flex-wrap gap-2">
+            <For each={presets}>
+              {(preset) => (
+                <button
+                  onClick={() => applyPreset(preset.levels)}
+                  class="px-4 py-2 bg-lime-500 text-white font-medium rounded-lg shadow-sm hover:bg-lime-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-opacity-75"
+                >
+                  {preset.name}
+                </button>
+              )}
+            </For>
+          </div>
+        </div>
+        {/* --- END ADDED --- */}
+
+        {/* --- ADDED: Title for manual controls --- */}
+        <h4 class="text-lg font-semibold mb-3 text-gray-800">Manual Control</h4>
+        {/* --- END ADDED --- */}
+
         <For each={[0, 1, 2]}>
           {(i) => {
             const idx = i;
@@ -87,6 +143,7 @@ export default function App() {
               <div class="flex items-center gap-4 bg-white border rounded-lg p-4 mb-4 shadow-sm hover:shadow-md transition-shadow duration-150 border-lime-200">
                 <div class="flex-1">
                   <label class="text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
+                    {/* You could make this dynamic, e.g., ["Red", "Green", "Blue"][idx] */}
                     <span class="truncate">LED {idx}:</span>
                   </label>
                   <div class="flex items-center">
