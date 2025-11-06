@@ -18,7 +18,7 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-// === CONFIGURATION (CHANGE THESE!) ===
+// === CONFIGURATION ===
 #define WIFI_SSID "Wokwi-GUEST"
 #define WIFI_PASSWORD ""
 
@@ -30,8 +30,8 @@ const int PIN_PIR = 4;    // GPIO pin for PIR sensor
 
 // --- MQTT Configuration ---
 const char* MQTT_BROKER = "broker.emqx.io";
-const int MQTT_PORT = 1883; // Standard MQTT port (not WebSocket)
-const char* DEVICE_ID = "esp32-01"; // Must match your app
+const int MQTT_PORT = 1883; 
+const char* DEVICE_ID = "esp32-01"; 
 
 // --- ESP32 PWM (ledc) Configuration ---
 const int PWM_FREQ = 5000;   // 5 kHz frequency for PWM
@@ -44,16 +44,13 @@ const int PWM_CHANNEL_3 = 2;
 // ===================================
 
 
-// --- Global Variables ---
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// Topic strings
 char topicCmd[100];
 char topicState[100];
 char topicPir[100];
 
-// Hardware state
 const int ledPins[] = {PIN_LED_1, PIN_LED_2, PIN_LED_3};
 const int pwmChannels[] = {PWM_CHANNEL_1, PWM_CHANNEL_2, PWM_CHANNEL_3};
 int ledLevels[] = {0, 0, 0};
@@ -91,13 +88,8 @@ void setupWifi() {
 void setLedLevel(int ledIndex, int level) {
   if (ledIndex < 0 || ledIndex > 2) return;
 
-  // Constrain level to 0-255
   level = constrain(level, 0, 255);
-
-  // Set the PWM duty cycle
   ledcWrite(ledPins[ledIndex], level);
-
-  // Store the new level
   ledLevels[ledIndex] = level;
 
   Serial.printf("Set LED %d to %d\n", ledIndex, level);
@@ -142,13 +134,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print(topic);
   Serial.print("] ");
 
-  // Create a null-terminated string from payload
   char message[length + 1];
   memcpy(message, payload, length);
   message[length] = '\0';
   Serial.println(message);
 
-  // Check if this is the command topic
   if (strcmp(topic, topicCmd) == 0) {
     StaticJsonDocument<128> doc;
     DeserializationError error = deserializeJson(doc, message);
@@ -159,16 +149,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       return;
     }
 
-    // Extract values
     if (doc.containsKey("led") && doc.containsKey("level")) {
       int ledIndex = doc["led"];
       int ledLevel = doc["level"];
 
-      // Set the LED level
       setLedLevel(ledIndex, ledLevel);
-
-      // Publish the new state back to the broker
-      // This confirms the change and syncs other clients
       publishLedState(ledIndex, ledLevels[ledIndex]);
 
     } else {
@@ -185,15 +170,12 @@ void reconnectMqtt() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     
-    // Attempt to connect
-    // You can use a more unique client ID if needed
     String clientId = "esp32-client-";
     clientId += String(random(0xffff), HEX);
 
     if (client.connect(clientId.c_str())) {
       Serial.println("connected");
 
-      // Subscribe to the command topic
       client.subscribe(topicCmd);
       Serial.print("Subscribed to: ");
       Serial.println(topicCmd);
@@ -245,7 +227,6 @@ void setup() {
   setupWifi();
 
   // --- Setup MQTT ---
-  // Construct topic strings
   snprintf(topicCmd, 100, "home/esp32/%s/led/set", DEVICE_ID);
   snprintf(topicState, 100, "home/esp32/%s/led/state", DEVICE_ID);
   snprintf(topicPir, 100, "home/esp32/%s/sensor/pir", DEVICE_ID);
@@ -278,13 +259,8 @@ void loop() {
       reconnectMqtt();
     }
   } else {
-    // If connected, process MQTT messages
     client.loop();
   }
 
-  // Always check the PIR sensor
-  // This is non-blocking and fast
   checkPirSensor();
-
-  // You can add other non-blocking tasks here
 }
