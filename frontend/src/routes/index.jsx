@@ -1,12 +1,9 @@
-import { createSignal, onMount, onCleanup, For } from "solid-js";
+import { createSignal, onMount, onCleanup, For, createEffect } from "solid-js";
 import mqtt from "mqtt";
 
 const DEVICE_ID = "esp32-01";
-const BROKER_URL = "ws://broker.emqx.io:8083/mqtt"; // example broker with websockets
+const BROKER_URL = "ws://broker.emqx.io:8083/mqtt";
 
-// --- ADDED: DEFINE YOUR PRESETS HERE ---
-// Assuming your LEDs are [LED_1, LED_2, LED_3]
-// If they are Red, Green, Blue, you can name them like "Red", "Blue", etc.
 const presets = [
   { name: "All Off", levels: [0, 0, 0] },
   { name: "All On", levels: [255, 255, 255] },
@@ -14,11 +11,15 @@ const presets = [
   { name: "Movie", levels: [20, 20, 150] },
   { name: "Warm", levels: [255, 180, 50] },
 ];
-// --- END ADDED ---
+
+const pirOnPreset = presets[2]; // Use "Reading" preset when motion is detected
+const pirOffPreset = presets[0]; // Use "All Off" preset when motion is clear
 
 export default function App() {
   const [levels, setLevels] = createSignal([0, 0, 0]);
   const [pir, setPir] = createSignal("unknown");
+
+  const [isPirAutomationOn, setIsPirAutomationOn] = createSignal(false);
 
   let client = null;
 
@@ -32,22 +33,29 @@ export default function App() {
     client.publish(topicCmd, payload);
   }
 
-  // --- ADDED: PRESET HANDLER FUNCTION ---
   function applyPreset(presetLevels) {
     if (!client) return;
-
-    // 1. Optimistic UI update: Set the sliders instantly
-    // This makes the app feel fast.
     setLevels(presetLevels);
-
-    // 2. Send the commands to the ESP32
-    // The ESP32 will send back `led/state` messages,
-    // which will just confirm the state we've already set.
     presetLevels.forEach((level, index) => {
       publishSet(index, level);
     });
   }
-  // --- END ADDED ---
+
+  createEffect(() => {
+    const currentPirState = pir();
+
+    if (!isPirAutomationOn()) {
+      return; // Do nothing
+    }
+
+    if (currentPirState === "detected") {
+      console.log("PIR Automation: Motion DETECTED! Sending 'On' preset.");
+      applyPreset(pirOnPreset);
+    } else if (currentPirState === "clear") {
+      console.log("PIR Automation: Motion CLEAR. Sending 'Off' preset.");
+      applyPreset(pirOffPreset);
+    }
+  });
 
   onMount(() => {
     client = mqtt.connect(BROKER_URL);
@@ -66,18 +74,17 @@ export default function App() {
           const level = Number(msg.level);
           if (!Number.isNaN(led) && led >= 0 && led < 3) {
             setLevels((prev) => {
-              // Only update if the state is actually different
-              // This prevents sliders from jumping if you're dragging one
-              // while another is being updated by a preset.
               if (prev[led] === level) return prev;
-
               const copy = [...prev];
               copy[led] = level;
               return copy;
             });
           }
         } else if (topic === topicPir) {
-          setPir(String(msg.pir));
+          const newPirState = String(msg.pir);
+          if (newPirState !== pir()) {
+            setPir(newPirState);
+          }
         }
       } catch (e) {
         console.error("Invalid JSON in MQTT message", e);
@@ -108,72 +115,104 @@ export default function App() {
           </h3>
         </div>
 
-        {/* lime accent divider */}
         <div
           class="w-12 h-1 mb-6 bg-lime-500 rounded-full"
           aria-label="accent divider"
         />
 
-        {/* --- ADDED: PRESET BUTTONS --- */}
-        <div class="mb-8">
-          <h4 class="text-lg font-semibold mb-3 text-gray-800">Presets</h4>
-          <div class="flex flex-wrap gap-2">
-            <For each={presets}>
-              {(preset) => (
-                <button
-                  onClick={() => applyPreset(preset.levels)}
-                  class="px-4 py-2 bg-lime-500 text-white font-medium rounded-lg shadow-sm hover:bg-lime-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-opacity-75"
-                >
-                  {preset.name}
-                </button>
-              )}
-            </For>
+        <div class="flex items-center justify-between bg-white border rounded-lg p-4 mb-6 shadow-sm border-lime-200">
+          <div>
+            <h4 classs="text-lg font-semibold text-gray-800">
+              Modo Automatico PIR
+            </h4>
+            <p class="text-sm text-gray-600">
+              Prende/Apaga las luces según el sensor.
+            </p>
+          </div>
+          <div class="flex items-center">
+            <span
+              class={`mr-3 text-sm font-medium ${isPirAutomationOn() ? "text-lime-600" : "text-gray-900"}`}
+            >
+              {isPirAutomationOn() ? "Enabled" : "Disabled"}
+            </span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isPirAutomationOn()}
+                onChange={(e) => setIsPirAutomationOn(e.currentTarget.checked)}
+                class="sr-only peer"
+              />
+              <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-lime-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-lime-600"></div>
+            </label>
           </div>
         </div>
-        {/* --- END ADDED --- */}
 
-        {/* --- ADDED: Title for manual controls --- */}
-        <h4 class="text-lg font-semibold mb-3 text-gray-800">Manual Control</h4>
-        {/* --- END ADDED --- */}
+        <fieldset
+          disabled={isPirAutomationOn()}
+          class={`transition-opacity duration-300 ${
+            isPirAutomationOn()
+              ? "opacity-50 pointer-events-none"
+              : "opacity-100"
+          }`}
+        >
+          <div class="mb-8">
+            <h4 class="text-lg font-semibold mb-3 text-gray-800">Presets</h4>
+            <div class="flex flex-wrap gap-2">
+              <For each={presets}>
+                {(preset) => (
+                  <button
+                    onClick={() => applyPreset(preset.levels)}
+                    class="px-4 py-2 bg-lime-500 text-white font-medium rounded-lg shadow-sm hover:bg-lime-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-opacity-75"
+                  >
+                    {preset.name}
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
 
-        <For each={[0, 1, 2]}>
-          {(i) => {
-            const idx = i;
-            return (
-              <div class="flex items-center gap-4 bg-white border rounded-lg p-4 mb-4 shadow-sm hover:shadow-md transition-shadow duration-150 border-lime-200">
-                <div class="flex-1">
-                  <label class="text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                    {/* You could make this dynamic, e.g., ["Red", "Green", "Blue"][idx] */}
-                    <span class="truncate">LED {idx}:</span>
-                  </label>
-                  <div class="flex items-center">
-                    <input
-                      type="range"
-                      min="0"
-                      max="255"
-                      value={levels()[idx]}
-                      onInput={(e) => {
-                        const v = Number(e.currentTarget.value);
-                        setLevels((prev) => {
-                          const copy = [...prev];
-                          copy[idx] = v;
-                          return copy;
-                        });
-                        publishSet(idx, v);
-                      }}
-                      class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <span class="ml-3 min-w-10 text-right text-gray-700">
-                      {levels()[idx]}
-                    </span>
+          <h4 class="text-lg font-semibold mb-3 text-gray-800">
+            Control Manual
+          </h4>
+
+          <For each={[0, 1, 2]}>
+            {(i) => {
+              const idx = i;
+              return (
+                <div class="flex items-center gap-4 bg-white border rounded-lg p-4 mb-4 shadow-sm hover:shadow-md transition-shadow duration-150 border-lime-200">
+                  <div class="flex-1">
+                    <label class="text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
+                      <span class="truncate">LED {idx}:</span>
+                    </label>
+                    <div class="flex items-center">
+                      <input
+                        type="range"
+                        min="0"
+                        max="255"
+                        value={levels()[idx]}
+                        onInput={(e) => {
+                          const v = Number(e.currentTarget.value);
+                          setLevels((prev) => {
+                            const copy = [...prev];
+                            copy[idx] = v;
+                            return copy;
+                          });
+                          publishSet(idx, v);
+                        }}
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <span class="ml-3 min-w-10 text-right text-gray-700">
+                        {levels()[idx]}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          }}
-        </For>
+              );
+            }}
+          </For>
+        </fieldset>
 
-        <div class="flex items-center gap-2 pt-2 text-gray-700">
+        <div class="flex items-center gap-2 pt-2 text-gray-800">
           <span class="font-semibold">PIR:</span>
           <span class="opacity-90">{pir()}</span>
         </div>
