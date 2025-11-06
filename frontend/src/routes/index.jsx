@@ -12,8 +12,8 @@ const presets = [
   { name: "Warm", levels: [255, 180, 50] },
 ];
 
-const pirOnPreset = presets[2]; // Use "Reading" preset when motion is detected
-const pirOffPreset = presets[0]; // Use "All Off" preset when motion is clear
+const pirOnPreset = presets[2].levels; // Use "Reading" preset when motion is detected
+const pirOffPreset = presets[0].levels; // Use "All Off" preset when motion is clear
 
 export default function App() {
   const [levels, setLevels] = createSignal([0, 0, 0]);
@@ -133,7 +133,7 @@ export default function App() {
             <span
               class={`mr-3 text-sm font-medium ${isPirAutomationOn() ? "text-lime-600" : "text-gray-900"}`}
             >
-              {isPirAutomationOn() ? "Enabled" : "Disabled"}
+              {isPirAutomationOn() ? "Encendido" : "Apagado"}
             </span>
             <label class="relative inline-flex items-center cursor-pointer">
               <input
