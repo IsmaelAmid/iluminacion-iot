@@ -3,29 +3,93 @@ import mqtt from "mqtt";
 
 const DEVICE_ID = "esp32-01";
 const BROKER_URL = "ws://broker.emqx.io:8083/mqtt";
+const API_URL = "https://2lo4lyv6ie.execute-api.us-east-1.amazonaws.com/prod";
 
-const presets = [
-  { name: "All Off", levels: [0, 0, 0] },
-  { name: "All On", levels: [255, 255, 255] },
-  { name: "Reading", levels: [200, 200, 100] },
-  { name: "Movie", levels: [20, 20, 150] },
-  { name: "Warm", levels: [255, 180, 50] },
-];
-
-const pirOnPreset = presets[2].levels; // Use "Reading" preset when motion is detected
-const pirOffPreset = presets[0].levels; // Use "All Off" preset when motion is clear
+const pirOnPreset = [200, 200, 100];
+const pirOffPreset = [0, 0, 0];
 
 export default function App() {
   const [levels, setLevels] = createSignal([0, 0, 0]);
   const [pir, setPir] = createSignal("unknown");
-
   const [isPirAutomationOn, setIsPirAutomationOn] = createSignal(false);
+
+  const [presets, setPresets] = createSignal([]);
+  const [newPresetName, setNewPresetName] = createSignal("");
 
   let client = null;
 
   const topicCmd = `home/esp32/${DEVICE_ID}/led/set`;
   const topicState = `home/esp32/${DEVICE_ID}/led/state`;
   const topicPir = `home/esp32/${DEVICE_ID}/sensor/pir`;
+
+  async function logPirEvent(event, details) {
+    if (!isPirAutomationOn()) return;
+
+    try {
+      await fetch(`${API_URL}/logs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ event, details }),
+      });
+      console.log("Logged PIR event:", event);
+    } catch (err) {
+      console.error("Error logging PIR event:", err);
+    }
+  }
+
+  async function fetchPresets() {
+    try {
+      const response = await fetch(`${API_URL}/presets`);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      const dbPresets = await response.json();
+      setPresets(dbPresets); // Set the presets from the database
+      console.log("Successfully fetched presets:", dbPresets);
+    } catch (err) {
+      console.error("Error fetching presets:", err);
+      setPresets([{ name: "API Failed", levels: [255, 0, 0] }]);
+    }
+  }
+
+  async function handleSavePreset() {
+    const name = newPresetName();
+    const currentLevels = levels();
+    if (!name.trim()) {
+      alert("Please enter a name for the preset.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/presets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: name, levels: currentLevels }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save preset");
+      }
+
+      const savedData = await response.json();
+      const newItem = savedData.newItem;
+
+      setPresets((prev) => [
+        ...prev,
+        { id: newItem.SK, name: newItem.name, levels: newItem.levels },
+      ]);
+
+      setNewPresetName(""); // Clear the input field
+      console.log("Saved preset:", newItem);
+    } catch (err) {
+      console.error("Error saving preset:", err);
+      alert("Error saving preset: " + err.message);
+    }
+  }
 
   function publishSet(led, level) {
     if (!client) return;
@@ -43,21 +107,24 @@ export default function App() {
 
   createEffect(() => {
     const currentPirState = pir();
-
     if (!isPirAutomationOn()) {
-      return; // Do nothing
+      return;
     }
-
     if (currentPirState === "detected") {
+      const details = `Motion detected, set to [${pirOnPreset.join(", ")}]`;
       console.log("PIR Automation: Motion DETECTED! Sending 'On' preset.");
       applyPreset(pirOnPreset);
+      logPirEvent("PIR_ON", details);
     } else if (currentPirState === "clear") {
+      const details = `Motion clear, set to [${pirOffPreset.join(", ")}]`;
       console.log("PIR Automation: Motion CLEAR. Sending 'Off' preset.");
       applyPreset(pirOffPreset);
+      logPirEvent("PIR_OFF", details);
     }
   });
 
-  onMount(() => {
+  onMount(async () => {
+    await fetchPresets();
     client = mqtt.connect(BROKER_URL);
 
     client.on("connect", () => {
@@ -158,7 +225,7 @@ export default function App() {
           <div class="mb-8">
             <h4 class="text-lg font-semibold mb-3 text-gray-800">Presets</h4>
             <div class="flex flex-wrap gap-2">
-              <For each={presets}>
+              <For each={presets()}>
                 {(preset) => (
                   <button
                     onClick={() => applyPreset(preset.levels)}
@@ -170,7 +237,21 @@ export default function App() {
               </For>
             </div>
           </div>
-
+          <div class="flex gap-2 mt-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <input
+              type="text"
+              value={newPresetName()}
+              onInput={(e) => setNewPresetName(e.currentTarget.value)}
+              placeholder="New preset name"
+              class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-400"
+            />
+            <button
+              onClick={handleSavePreset}
+              class="px-4 py-2 bg-lime-500 text-white font-medium rounded-lg shadow-sm hover:bg-lime-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400"
+            >
+              Save Current
+            </button>
+          </div>
           <h4 class="text-lg font-semibold mb-3 text-gray-800">
             Control Manual
           </h4>
