@@ -203,7 +203,11 @@ export default function App() {
   });
 
   return (
+<<<<<<< HEAD
     <div class="min-h-screen bg-stone-100 text-gray-800 font-sans p-6">
+=======
+    <div class="min-h-screen bg-stone-100 text-stone-800 font-sans p-6">
+>>>>>>> fd1b3b5 (feat: update styles)
       <div class="max-w-2xl mx-auto">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-2xl font-semibold tracking-wide">
