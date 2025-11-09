@@ -203,7 +203,7 @@ export default function App() {
   });
 
   return (
-    <div class="min-h-screen bg-linear-to-br from-white to-gray-50 text-gray-800 font-sans p-6">
+    <div class="min-h-screen bg-stone-100 text-gray-800 font-sans p-6">
       <div class="max-w-2xl mx-auto">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-2xl font-semibold tracking-wide">
@@ -251,7 +251,7 @@ export default function App() {
               : "opacity-100"
           }`}
         >
-          <div class="mb-8">
+          <div class="mb-4">
             <h4 class="text-lg font-semibold mb-3 text-gray-800">Presets</h4>
             <div class="flex flex-wrap gap-2">
               <For each={presets()}>
@@ -259,13 +259,13 @@ export default function App() {
                   <div class="relative flex shadow-sm rounded-lg">
                     <button
                       onClick={() => applyPreset(preset.levels)}
-                      class="px-4 py-2 bg-lime-500 text-white font-medium rounded-l-lg hover:bg-lime-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-opacity-75"
+                      class="px-4 py-2 bg-lime-300 text-stone-800 font-medium rounded-l-lg hover:bg-lime-400/70 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-opacity-75"
                     >
                       {preset.name}
                     </button>
                     <button
                       onClick={(e) => handleDeletePreset(preset.id, e)}
-                      class="px-2 py-2 bg-lime-600 text-white font-bold rounded-r-lg hover:bg-red-800 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-red-400"
+                      class="px-2 py-2 bg-lime-500/70 text-stone-50 font-bold rounded-r-lg hover:bg-red-600/70 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-red-400"
                       aria-label={`Borrar preset ${preset.name}`}
                     >
                       &times;
@@ -275,19 +275,19 @@ export default function App() {
               </For>
             </div>
           </div>
-          <div class="flex gap-2 mt-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div class="flex gap-2  mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
             <input
               type="text"
               value={newPresetName()}
               onInput={(e) => setNewPresetName(e.currentTarget.value)}
-              placeholder="New preset name"
+              placeholder="Nombre del nuevo preset"
               class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-400"
             />
             <button
               onClick={handleSavePreset}
-              class="px-4 py-2 bg-lime-500 text-white font-medium rounded-lg shadow-sm hover:bg-lime-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400"
+              class="px-4 py-2 bg-lime-300 text-stone-800 font-medium rounded-lg shadow-sm hover:bg-lime-400/70 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400"
             >
-              Save Current
+              Guardar Preset
             </button>
           </div>
           <h4 class="text-lg font-semibold mb-3 text-gray-800">
