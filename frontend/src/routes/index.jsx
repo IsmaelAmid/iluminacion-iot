@@ -58,7 +58,7 @@ export default function App() {
     const name = newPresetName();
     const currentLevels = levels();
     if (!name.trim()) {
-      alert("Please enter a name for the preset.");
+      alert("Ingrese un nombre para el preset.");
       return;
     }
 
@@ -88,6 +88,35 @@ export default function App() {
     } catch (err) {
       console.error("Error saving preset:", err);
       alert("Error saving preset: " + err.message);
+    }
+  }
+  async function handleDeletePreset(presetId, e) {
+    e.stopPropagation();
+
+    if (!confirm("Are you sure you want to delete this preset?")) {
+      return;
+    }
+
+    const originalPresets = presets();
+    setPresets((prev) => prev.filter((p) => p.id !== presetId));
+
+    console.log(presetId);
+    try {
+      const encodedId = encodeURIComponent(presetId);
+      const response = await fetch(`${API_URL}/presets?id=${encodedId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        setPresets(originalPresets);
+        throw new Error(`Failed to delete preset (status: ${response.status})`);
+      }
+
+      console.log("Deleted preset:", presetId);
+    } catch (err) {
+      setPresets(originalPresets);
+      console.error("Error deleting preset:", err);
+      alert("Error deleting preset: " + err.message);
     }
   }
 
@@ -227,12 +256,21 @@ export default function App() {
             <div class="flex flex-wrap gap-2">
               <For each={presets()}>
                 {(preset) => (
-                  <button
-                    onClick={() => applyPreset(preset.levels)}
-                    class="px-4 py-2 bg-lime-500 text-white font-medium rounded-lg shadow-sm hover:bg-lime-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-opacity-75"
-                  >
-                    {preset.name}
-                  </button>
+                  <div class="relative flex shadow-sm rounded-lg">
+                    <button
+                      onClick={() => applyPreset(preset.levels)}
+                      class="px-4 py-2 bg-lime-500 text-white font-medium rounded-l-lg hover:bg-lime-600 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-opacity-75"
+                    >
+                      {preset.name}
+                    </button>
+                    <button
+                      onClick={(e) => handleDeletePreset(preset.id, e)}
+                      class="px-2 py-2 bg-lime-600 text-white font-bold rounded-r-lg hover:bg-red-800 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-red-400"
+                      aria-label={`Borrar preset ${preset.name}`}
+                    >
+                      &times;
+                    </button>
+                  </div>
                 )}
               </For>
             </div>
