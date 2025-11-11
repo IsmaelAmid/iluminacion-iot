@@ -26,7 +26,7 @@
 const int PIN_LED_1 = 25; // GPIO pin for LED 0
 const int PIN_LED_2 = 26; // GPIO pin for LED 1
 const int PIN_LED_3 = 27; // GPIO pin for LED 2
-const int PIN_PIR = 4;    // GPIO pin for PIR sensor
+const int PIN_PIR = 18;    // GPIO pin for PIR sensor
 
 // --- MQTT Configuration ---
 const char* MQTT_BROKER = "broker.emqx.io";
