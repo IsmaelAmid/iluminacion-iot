@@ -1,6 +1,9 @@
 # iliuminacion-iot
-Trabajo final de la cátedra de domotica de UNLaR
+Este proyecto consiste en un sistema de iluminación inteligente basado en IoT, desarrollado como trabajo final para la cátedra de Domótica de UNLaR.
+El sistema permite controlar de forma remota una lámpara RGB utilizando un ESP32, un sensor PIR y una aplicación web que se comunica mediante el protocolo MQTT a través de un broker en la nube (EMQX Cloud).
 
+El sistema está diseñado para automatizar el encendido, apagado y control de la intensidad del color de una lámpara RGB, conformada por tres LEDs (rojo, verde y azul).
+El ESP32 se encarga de procesar los datos del sensor PIR y gestionar los mensajes MQTT, mientras que la aplicación web permite al usuario ajustar la iluminación de manera manual o automática, guardar presets y visualizar el estado en tiempo real.
 
 
 ## Interfaz
@@ -85,3 +88,21 @@ En la parte inferior de la página, verás el estado actual del sensor de movimi
 - **PIR: clear:** No se detecta movimiento.
     
 - **PIR: detected:** ¡Movimiento detectado!
+
+## Componentes del sistema
+
+| Componente     | Descripción                | Pin GPIO |
+| -------------- | -------------------------- | -------- |
+| 🧠 ESP32       | Microcontrolador principal | —        |
+| 🔴 LED Rojo    | Control de canal rojo      | GPIO 25  |
+| 🟢 LED Verde   | Control de canal verde     | GPIO 26  |
+| 🔵 LED Azul    | Control de canal azul      | GPIO 27  |
+| 👁️ Sensor PIR | Detección de movimiento     | GPIO 18  |
+
+
+## Broker en la nube: EMQX Cloud
+
+Para la comunicación entre dispositivos se utilizó EMQX Cloud, un broker MQTT alojado en la nube que permite la conexión segura y estable entre el ESP32 y la aplicación web.
+A través de EMQX, el microcontrolador publica el estado del sensor PIR y los niveles de los LEDs, mientras que la aplicación envía comandos para modificar la iluminación.
+Esta arquitectura elimina la necesidad de servidores locales y facilita la escalabilidad y monitoreo del sistema desde cualquier lugar con acceso a Internet.
+
