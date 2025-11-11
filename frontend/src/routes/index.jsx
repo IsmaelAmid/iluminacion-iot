@@ -2,8 +2,8 @@ import { createSignal, onMount, onCleanup, For, createEffect } from "solid-js";
 import mqtt from "mqtt";
 
 const DEVICE_ID = "esp32-01";
-const BROKER_URL = "ws://broker.emqx.io:8083/mqtt";
-const API_URL = "https://2lo4lyv6ie.execute-api.us-east-1.amazonaws.com/prod";
+const BROKER_URL = import.meta.env.VITE_BROKER_URL;
+const API_URL = import.meta.env.VITE_API_URL;
 
 const pirOnPreset = [200, 200, 100];
 const pirOffPreset = [0, 0, 0];
@@ -90,6 +90,7 @@ export default function App() {
       alert("Error saving preset: " + err.message);
     }
   }
+
   async function handleDeletePreset(presetId, e) {
     e.stopPropagation();
 
